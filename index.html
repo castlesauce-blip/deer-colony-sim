@@ -31,13 +31,13 @@
 </head>
 <body>
 <canvas id="stage"></canvas>
-<div class="hud"><span>🫐 <b id="food">0</b></span><span>🪨 <b id="stone">0</b></span><span>🏠 <b id="built">0</b></span></div>
+<div class="hud"><span>🫐<b id="food">0</b></span><span>🪨<b id="stone">0</b></span><span>🪵<b id="wood">0</b></span><span>🟫<b id="lumber">0</b></span><span>🧱<b id="bricks">0</b></span></div>
 <div class="meters"><span>Readiness → uprising</span><div class="bar"><i id="rb"></i></div><span>Suspicion</span><div class="bar"><i id="sb"></i></div><span>Wariness → more humans</span><div class="bar"><i id="wb"></i></div></div>
 <div class="clock" id="clock">☀️</div>
 <div class="zoom"><button id="zin">+</button><button id="zout">−</button></div>
 <button class="lever" id="lever">🕳️ Go to Ground</button>
 <div class="warn" id="warn"></div>
-<div class="hint" id="hint">Drag a deer onto a 🫐bush / 🪨rock to hand-gather · TAP a build site to build · assign deer to a Mine/Farm for way more output · 🕳️ hide when humans near</div>
+<div class="hint" id="hint">Drag a deer onto a 🫐bush / 🪨rock to hand-gather · TAP a build site to build · assign deer to a Mine/Farm for way more output · 🪵chop logs → 🪵Lumber Mill=🟫lumber · Stone Mason=🧱bricks → build the 🔧 Master Lever</div>
 <div id="setup"><div class="card">
   <h2>🦌 Deer Colony</h2><div class="sub">Set up your world</div>
   <div class="story">Fed up with the humans, a few deer slipped into the woods to build a colony of their own…</div>
@@ -63,7 +63,7 @@
 
   // ---- world containers (filled by genWorld) ----
   let flora=[],coverPts=[],raws=[],sites=[],structs=[],herd=[],water=new Set();
-  const res={food:0,stone:0};let readiness=0,suspicion=0,wariness=0,hidden=false,hideLift=0;
+  const res={food:0,stone:0,wood:0,lumber:0,bricks:0};let readiness=0,suspicion=0,wariness=0,hidden=false,hideLift=0,leverBuilt=false;let leverPos=null;let firstAssign=false;
   let patrolMult=1;
   const isWater=(gx,gy)=>water.has(Math.round(gx)+'_'+Math.round(gy));
   function mkSlots(){return [[-.55,.4],[.55,.4],[0,-.55]].map(([ox,oy])=>({ox,oy,taken:null}));}
@@ -93,12 +93,15 @@
     for(let i=0;i<nFlora;i++){const sp=landSpot(0);const [t,c]=T[Math.floor(Math.random()*T.length)];const f={gx:sp.gx,gy:sp.gy,t,s:rand(.85,1.2),tone:rand(-8,8)};flora.push(f);if(c)coverPts.push(f);}
     // raw gather spots by scarcity
     raws=[];const nRaw={sparse:3,normal:5,rich:8}[cfg.scar];
-    for(let i=0;i<nRaw;i++){const sp=landSpot(1);raws.push({k:i%2?'mine':'forage',gx:sp.gx,gy:sp.gy,slots:mkSlots()});coverPts.push({gx:sp.gx,gy:sp.gy});}
+    for(let i=0;i<nRaw;i++){const sp=landSpot(1);raws.push({k:['forage','mine','chop'][i%3],gx:sp.gx,gy:sp.gy,slots:mkSlots()});coverPts.push({gx:sp.gx,gy:sp.gy});}
     // build sites near map centre
-    sites=[];const c1=landSpot(2),c2=landSpot(2);
+    sites=[];const c1=landSpot(2),c2=landSpot(2),c3=landSpot(3),c4=landSpot(2),c5=landSpot(2);
     sites.push({type:'farm',gx:c1.gx,gy:c1.gy,cF:12,cS:8,ghost:true,prog:0,building:false});
     sites.push({type:'mine',gx:c2.gx,gy:c2.gy,cF:8,cS:12,ghost:true,prog:0,building:false});
-    structs=[];
+    sites.push({type:'lumber',gx:c4.gx,gy:c4.gy,cF:15,cS:15,ghost:true,prog:0,building:false});
+    sites.push({type:'mason',gx:c5.gx,gy:c5.gy,cF:15,cS:15,ghost:true,prog:0,building:false});
+    sites.push({type:'lever',gx:c3.gx,gy:c3.gy,cL:40,cB:40,ghost:true,prog:0,building:false});
+    structs=[];leverBuilt=false;leverPos=null;hidden=false;firstAssign=false;
     herd=[];const n=parseInt(cfg.deer);for(let i=0;i<n;i++){const sp=landSpot(3);herd.push(mk(sp.gx,sp.gy));}
     center();
   }
@@ -116,7 +119,7 @@
   const P=e=>{const p=e.touches?e.touches[0]:e;return p?{x:p.clientX,y:p.clientY}:null;};
   cv.addEventListener('pointerdown',e=>{const p=P(e);if(!p||!started)return;ptr=p;startPtr=p;moved=0;
     let best=null,bd=42*zoom;for(const d of herd){const s=W2S(iso(d.gx,d.gy).x,iso(d.gx,d.gy).y-16-d.lift);const dd=Math.hypot(s.x-p.x,s.y-p.y);if(dd<bd){bd=dd;best=d;}}
-    if(best){mode='grab';held=best;best.held=true;releaseSlot(best);best.target=null;hideHint();return;}
+    if(best){mode='grab';held=best;best.held=true;releaseSlot(best);best.target=null;return;}
     tapSite=null;for(const s of sites){if(s.ghost&&!s.building){const sc=W2S(iso(s.gx,s.gy).x,iso(s.gx,s.gy).y-14);if(Math.hypot(sc.x-p.x,sc.y-p.y)<48*zoom){tapSite=s;break;}}}
     mode='pan';startPan={x:panX,y:panY};});
   addEventListener('pointermove',e=>{const p=P(e);if(!p)return;moved+=Math.hypot(p.x-ptr.x,p.y-ptr.y);ptr=p;if(mode==='pan'){panX=startPan.x+(p.x-startPtr.x);panY=startPan.y+(p.y-startPtr.y);}});
@@ -125,15 +128,17 @@
   function assignDrop(d){let best=null,bt=null,bd=70*zoom;
     for(const r of raws){const s=W2S(iso(r.gx,r.gy).x,iso(r.gx,r.gy).y);const dd=Math.hypot(s.x-ptr.x,s.y-ptr.y);if(dd<bd){bd=dd;best=r;bt='raw';}}
     for(const st of structs){const s=W2S(iso(st.gx,st.gy).x,iso(st.gx,st.gy).y);const dd=Math.hypot(s.x-ptr.x,s.y-ptr.y);if(dd<bd){bd=dd;best=st;bt='struct';}}
-    if(best){const slot=best.slots.find(s=>!s.taken);if(slot){slot.taken=d;d.slot=slot;d.target={type:bt,obj:best};d.atWork=0;}}}
-  function tryBuild(s){if(res.food>=s.cF&&res.stone>=s.cS){res.food-=s.cF;res.stone-=s.cS;s.building=true;s.prog=0;showWarn('🔨 Building '+(s.type==='farm'?'Farm':'Mine')+'…');}else showWarn('Need '+s.cF+'🫐 + '+s.cS+'🪨 to build');}
+    if(best){const slot=best.slots.find(s=>!s.taken);if(slot){slot.taken=d;d.slot=slot;d.target={type:bt,obj:best};d.atWork=0;firstAssign=true;}else{d.roamx=d.gx;d.roamy=d.gy;d.roamT=14;}}else{d.roamx=d.gx;d.roamy=d.gy;d.roamT=14;}}
+  const SNAME={farm:'Farm',mine:'Mine',lumber:'Lumber Mill',mason:'Stone Mason',lever:'Master Lever'};
+  function tryBuild(s){if(s.type==='lever'){if(res.lumber>=s.cL&&res.bricks>=s.cB){res.lumber-=s.cL;res.bricks-=s.cB;s.building=true;s.prog=0;showWarn('🔨 Building Master Lever…');}else showWarn('Need '+s.cL+'🟫 + '+s.cB+'🧱 (refine wood→lumber, stone→bricks first)');return;}if(res.food>=s.cF&&res.stone>=s.cS){res.food-=s.cF;res.stone-=s.cS;s.building=true;s.prog=0;showWarn('🔨 Building '+SNAME[s.type]+'…');}else showWarn('Need '+s.cF+'🫐 + '+s.cS+'🪨 to build');}
   function zoomAt(sx,sy,f){const nz=clamp(zoom*f,0.5,1.7);panX=sx-(sx-panX)*(nz/zoom);panY=sy-(sy-panY)*(nz/zoom);zoom=nz;}
   document.getElementById('zin').onclick=()=>zoomAt(W/2,H/2,1.2);
   document.getElementById('zout').onclick=()=>zoomAt(W/2,H/2,1/1.2);
   addEventListener('wheel',e=>zoomAt(e.clientX,e.clientY,e.deltaY<0?1.1:1/1.1),{passive:true});
-  document.getElementById('lever').onclick=()=>{hidden=!hidden;};
+  document.getElementById('lever').onclick=()=>{if(leverBuilt)hidden=!hidden;else showWarn('Build the 🔧 Master Lever first — a huge, long-term investment');};
   let hintOn=true;function hideHint(){if(!hintOn)return;hintOn=false;const h=document.getElementById('hint');h.style.opacity=0;setTimeout(()=>h.remove(),1000);}
   let warnT=0;function showWarn(t){const w=document.getElementById('warn');w.textContent=t;w.style.opacity=1;warnT=3.2;}
+  function updateGuide(){const h=document.getElementById('hint');if(!h)return;const anyBuilding=sites.some(x=>x.building);let t;if(!firstAssign)t='👆 Drag a deer onto a 🫐bush · 🪨rock · 🪵logs to start gathering';else if(structs.length===0&&!anyBuilding)t='Now TAP a dashed build site (🌾/⛏/🪵/🧱) when you can afford it';else if(!leverBuilt)t='Assign deer to buildings for 3× output · refine 🪵→🟫 and 🪨→🧱 for the 🔧 Master Lever';else t='';if(t){h.textContent=t;h.style.opacity=1;}else h.style.opacity=0;}
 
   // setup screen wiring
   const cfg={size:'med',scar:'normal',hum:'normal',deer:'2'};let started=false;
@@ -154,7 +159,7 @@
     }
     if(!isDay()&&phase==='active'){human=null;phase='none';}
 
-    for(let i=sites.length-1;i>=0;i--){const s=sites[i];if(s.building){s.prog+=dt/4;if(s.prog>=1){structs.push({type:s.type,gx:s.gx,gy:s.gy,slots:mkSlots()});coverPts.push({gx:s.gx,gy:s.gy});readiness=Math.min(1,readiness+0.1);showWarn((s.type==='farm'?'🌾 Farm':'⛏ Mine')+' built! Assign deer to it.');sites.splice(i,1);}}}
+    for(let i=sites.length-1;i>=0;i--){const s=sites[i];if(s.building){s.prog+=dt/(s.type==='lever'?9:4);if(s.prog>=1){if(s.type==='lever'){leverBuilt=true;leverPos={gx:s.gx,gy:s.gy};readiness=Math.min(1,readiness+0.25);showWarn('🔧 Master Lever built! Tap Go to Ground when humans near.');}else{structs.push({type:s.type,gx:s.gx,gy:s.gy,slots:mkSlots()});coverPts.push({gx:s.gx,gy:s.gy});readiness=Math.min(1,readiness+0.1);showWarn(SNAME[s.type]+' built! Assign deer to it.');}sites.splice(i,1);}}}
 
     hideLift=lerp(hideLift,hidden?34:0,0.18);
     for(const d of herd){
@@ -165,15 +170,15 @@
         const o=d.target.obj,tx=o.gx+d.slot.ox,ty=o.gy+d.slot.oy,dd=Math.hypot(tx-d.gx,ty-d.gy);
         if(dd>.15){d.vx+=(tx-d.gx)*.03;d.vy+=(ty-d.gy)*.03;d.atWork=Math.max(0,d.atWork-dt*2);}
         else{d.atWork=Math.min(1,d.atWork+dt*2);d.vx*=.6;d.vy*=.6;
-          if(!hidden){const rate=(d.target.type==='struct'?1.15:0.4);const key=(o.k||o.type)==='mine'?'stone':'food';
-            d._acc=(d._acc||0)+dt*rate;if(d._acc>=1){d._acc-=1;res[key]++;const s=W2S(iso(d.gx,d.gy).x,iso(d.gx,d.gy).y-22);pop(s.x,s.y,key);}
+          if(!hidden){const isStruct=d.target.type==='struct';const rate=(isStruct?1.15:0.4);const ot=o.type||o.k;
+            d._acc=(d._acc||0)+dt*rate;if(d._acc>=1){d._acc-=1;let prod=null;if(ot==='forage'||ot==='farm')prod='food';else if(ot==='mine')prod='stone';else if(ot==='chop')prod='wood';else if(ot==='lumber'){if(res.wood>0){res.wood--;prod='lumber';}}else if(ot==='mason'){if(res.stone>0){res.stone--;prod='bricks';}}if(prod){res[prod]++;const s=W2S(iso(d.gx,d.gy).x,iso(d.gx,d.gy).y-22);pop(s.x,s.y,prod);}}
             if(human&&phase==='active'&&!nearCover(d)){const pw=iso(human.gx,human.gy),dw=iso(d.gx,d.gy);const vx=dw.x-pw.x,vy=dw.y-pw.y,vl=Math.hypot(vx,vy)||1;
               if(vl<human.R){const fw=iso(human.gx+human.dirx,human.gy+human.diry);const fdx=fw.x-pw.x,fdy=fw.y-pw.y,fl=Math.hypot(fdx,fdy)||1;const a2=Math.acos(clamp((vx/vl)*(fdx/fl)+(vy/vl)*(fdy/fl),-1,1));
                 if(a2<human.half){suspicion=Math.min(1,suspicion+dt*0.16);wariness=Math.min(1,wariness+dt*0.05);d.seen=1;}}}}
         }
       } else {
-        d.roamT-=dt;if(d.roamT<=0){const sp=landSpot(1);d.roamx=sp.gx;d.roamy=sp.gy;d.roamT=rand(3,7);}
-        d.vx+=(d.roamx-d.gx)*.004;d.vy+=(d.roamy-d.gy)*.004;
+        d.roamT-=dt;if(d.roamT<=0){const sp=landSpot(1);d.roamx=sp.gx;d.roamy=sp.gy;d.roamT=rand(9,18);}
+        d.vx+=(d.roamx-d.gx)*.0025;d.vy+=(d.roamy-d.gy)*.0025;
         for(const o of herd){if(o===d||o.held)continue;const dx=o.gx-d.gx,dy=o.gy-d.gy,l=Math.hypot(dx,dy)||1;if(l<1.8){d.vx-=dx/l*.05;d.vy-=dy/l*.05;}}
         d.bob+=dt;
       }
@@ -187,7 +192,7 @@
     suspicion=Math.max(0,suspicion-dt*(isDay()?0.03:0.11));wariness=Math.max(0,wariness-dt*0.0015);
     if(suspicion>=1){showWarn('👀 Spotted! Lie low…');suspicion=0.5;readiness=Math.max(0,readiness-0.06);}
     if(warnT>0){warnT-=dt;if(warnT<=0)document.getElementById('warn').style.opacity=0;}
-    for(let i=parts.length-1;i>=0;i--){const q=parts[i];if(q.t==='heart'){q.x+=q.vx*4;q.y+=q.vy*4;q.vy-=.02;q.life-=dt*.9;}else{q.x=lerp(q.x,60,.05);q.y=lerp(q.y,18,.05);q.life-=dt*.7;if(Math.hypot(q.x-60,q.y-18)<12)q.life=0;}if(q.life<=0)parts.splice(i,1);}
+    for(let i=parts.length-1;i>=0;i--){const q=parts[i];q.x+=q.vx*3;q.y+=q.vy*3;q.vy-=.03;q.life-=dt*1.05;if(q.life<=0)parts.splice(i,1);}
   }
 
   function diamond(x,y,f){ctx.fillStyle=f;ctx.beginPath();ctx.moveTo(x,y-TH/2);ctx.lineTo(x+TW/2,y);ctx.lineTo(x,y+TH/2);ctx.lineTo(x-TW/2,y);ctx.closePath();ctx.fill();}
@@ -203,16 +208,19 @@
     else{ctx.strokeStyle='#5a9847';ctx.lineWidth=1.1;for(let k=-2;k<=2;k++){ctx.beginPath();ctx.moveTo(k*1.6,0);ctx.lineTo(k*1.6,-4-Math.abs(k));ctx.stroke();}}
     ctx.restore();}
   function drawRaw(r){const s=iso(r.gx,r.gy);ctx.fillStyle='rgba(50,70,35,.22)';ctx.beginPath();ctx.ellipse(s.x,s.y,20,9,0,0,6.28);ctx.fill();ctx.save();ctx.translate(s.x,s.y);
+    if(!firstAssign){const pr=0.35+0.4*Math.abs(Math.sin(performance.now()/350));ctx.strokeStyle='rgba(124,195,107,'+pr+')';ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,-8,22,0,6.28);ctx.stroke();}
     if(r.k==='forage'){ctx.fillStyle='#5a9847';ctx.beginPath();ctx.arc(0,-12,15,0,6.28);ctx.fill();ctx.fillStyle='#7b5bd6';for(const b of[[-6,-10],[6,-16],[8,-6]]){ctx.beginPath();ctx.arc(b[0],b[1],3,0,6.28);ctx.fill();}}
-    else{ctx.fillStyle='#9aa0a6';ctx.beginPath();ctx.moveTo(-16,-2);ctx.lineTo(-10,-20);ctx.lineTo(6,-24);ctx.lineTo(18,-12);ctx.lineTo(15,-2);ctx.closePath();ctx.fill();}
-    ctx.font='13px serif';ctx.textAlign='center';ctx.fillText(r.k==='forage'?'🫐':'🪨',0,-28);ctx.restore();}
-  function drawSite(s){const c=iso(s.gx,s.gy);ctx.save();ctx.translate(c.x,c.y);const can=res.food>=s.cF&&res.stone>=s.cS;ctx.setLineDash([6,5]);ctx.strokeStyle=s.building?'#7cc36b':(can?'#7b5bd6':'rgba(90,80,60,.6)');ctx.lineWidth=3;ctx.strokeRect(-24,-34,48,40);ctx.setLineDash([]);
+    else if(r.k==='mine'){ctx.fillStyle='#9aa0a6';ctx.beginPath();ctx.moveTo(-16,-2);ctx.lineTo(-10,-20);ctx.lineTo(6,-24);ctx.lineTo(18,-12);ctx.lineTo(15,-2);ctx.closePath();ctx.fill();}else{ctx.fillStyle='#8a5a2e';for(const ly of[-4,-10,-16])ctx.fillRect(-14,ly,28,5);ctx.fillStyle='#b98a56';for(const lx of[-14,14]){ctx.beginPath();ctx.arc(lx,-13,2.5,0,6.28);ctx.arc(lx,-7,2.5,0,6.28);ctx.fill();}}
+    ctx.font='13px serif';ctx.textAlign='center';ctx.fillText(r.k==='forage'?'🫐':r.k==='mine'?'🪨':'🪵',0,-28);ctx.restore();}
+  function drawSite(s){const c=iso(s.gx,s.gy);ctx.save();ctx.translate(c.x,c.y);const can=s.type==='lever'?(res.lumber>=s.cL&&res.bricks>=s.cB):(res.food>=s.cF&&res.stone>=s.cS);ctx.setLineDash([6,5]);ctx.strokeStyle=s.building?'#7cc36b':(can?'#7b5bd6':'rgba(90,80,60,.6)');ctx.lineWidth=3;ctx.strokeRect(-24,-34,48,40);ctx.setLineDash([]);
     if(s.building){ctx.fillStyle='rgba(124,195,107,.35)';ctx.fillRect(-24,6-40*s.prog,48,40*s.prog);}
-    ctx.fillStyle='#5c4f3a';ctx.font='bold 11px ui-rounded';ctx.textAlign='center';ctx.fillText((s.type==='farm'?'🌾 Farm':'⛏ Mine'),0,-40);ctx.fillText(s.building?'building…':(can?'TAP TO BUILD':s.cF+'🫐 '+s.cS+'🪨'),0,16);ctx.restore();}
+    ctx.fillStyle='#5c4f3a';ctx.font='bold 11px ui-rounded';ctx.textAlign='center';ctx.fillText({farm:'🌾 Farm',mine:'⛏ Mine',lumber:'🪵 Lumber Mill',mason:'🧱 Stone Mason',lever:'🔧 Master Lever'}[s.type],0,-40);ctx.fillText(s.building?'building…':(can?'TAP TO BUILD':(s.type==='lever'?s.cL+'🟫 '+s.cB+'🧱':s.cF+'🫐 '+s.cS+'🪨')),0,16);ctx.restore();}
   function drawStruct(st){const s=iso(st.gx,st.gy);ctx.fillStyle='rgba(50,70,35,.25)';ctx.beginPath();ctx.ellipse(s.x,s.y,26,11,0,0,6.28);ctx.fill();ctx.save();ctx.globalAlpha=hidden?0.25:1;ctx.translate(s.x,s.y+hideLift);
+    ctx.fillStyle='#7a6a52';ctx.beginPath();ctx.moveTo(0,-4);ctx.lineTo(30,10);ctx.lineTo(0,24);ctx.lineTo(-30,10);ctx.closePath();ctx.fill();
     if(st.type==='farm'){ctx.fillStyle='#b98a56';ctx.fillRect(-24,-14,48,20);ctx.fillStyle='#8a6a44';ctx.beginPath();ctx.moveTo(-28,-14);ctx.lineTo(0,-30);ctx.lineTo(28,-14);ctx.closePath();ctx.fill();ctx.fillStyle='#6cae54';for(let i=-2;i<=2;i++)ctx.fillRect(i*8-2,2,4,6);}
-    else{ctx.fillStyle='#8a939b';ctx.beginPath();ctx.moveTo(-26,4);ctx.lineTo(-16,-24);ctx.lineTo(10,-30);ctx.lineTo(26,-10);ctx.lineTo(22,4);ctx.closePath();ctx.fill();ctx.fillStyle='#3a2f26';ctx.beginPath();ctx.ellipse(0,-2,8,7,0,0,6.28);ctx.fill();}
-    const filled=st.slots.filter(sl=>sl.taken).length;ctx.fillStyle='#5c4f3a';ctx.font='bold 11px ui-rounded';ctx.textAlign='center';ctx.fillText((st.type==='farm'?'🌾':'⛏')+' '+filled+'/3',0,-34);ctx.restore();}
+    else if(st.type==='mine'){ctx.fillStyle='#8a939b';ctx.beginPath();ctx.moveTo(-26,4);ctx.lineTo(-16,-24);ctx.lineTo(10,-30);ctx.lineTo(26,-10);ctx.lineTo(22,4);ctx.closePath();ctx.fill();ctx.fillStyle='#3a2f26';ctx.beginPath();ctx.ellipse(0,-2,8,7,0,0,6.28);ctx.fill();}else if(st.type==='lumber'){ctx.fillStyle='#8a5a2e';ctx.fillRect(-24,-16,48,22);ctx.fillStyle='#6b4522';ctx.beginPath();ctx.moveTo(-28,-16);ctx.lineTo(0,-30);ctx.lineTo(28,-16);ctx.closePath();ctx.fill();ctx.strokeStyle='#e9c79a';ctx.lineWidth=2;ctx.beginPath();ctx.arc(14,-4,7,0,6.28);ctx.stroke();}else{ctx.fillStyle='#9aa0a6';ctx.fillRect(-24,-14,48,20);ctx.fillStyle='#7a8087';ctx.beginPath();ctx.moveTo(-28,-14);ctx.lineTo(0,-28);ctx.lineTo(28,-14);ctx.closePath();ctx.fill();ctx.fillStyle='#b98a56';ctx.fillRect(-8,-8,16,10);}
+    const filled=st.slots.filter(sl=>sl.taken).length;ctx.fillStyle='#5c4f3a';ctx.font='bold 11px ui-rounded';ctx.textAlign='center';ctx.fillText(({farm:'🌾',mine:'⛏',lumber:'🪵',mason:'🧱'}[st.type]||'🏠')+' '+filled+'/3',0,-34);ctx.restore();}
+  function drawLever(L){const s=iso(L.gx,L.gy);ctx.fillStyle='rgba(50,70,35,.25)';ctx.beginPath();ctx.ellipse(s.x,s.y,20,9,0,0,6.28);ctx.fill();ctx.save();ctx.translate(s.x,s.y);ctx.fillStyle='#7a6a52';ctx.beginPath();ctx.moveTo(0,-2);ctx.lineTo(24,10);ctx.lineTo(0,22);ctx.lineTo(-24,10);ctx.closePath();ctx.fill();ctx.strokeStyle='#4a3120';ctx.lineWidth=4;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(0,6);ctx.lineTo(hidden?-12:12,-14);ctx.stroke();ctx.fillStyle=hidden?'#e8887f':'#7cc36b';ctx.beginPath();ctx.arc(hidden?-12:12,-14,4,0,6.28);ctx.fill();ctx.fillStyle='#5c4f3a';ctx.font='bold 10px ui-rounded';ctx.textAlign='center';ctx.fillText('🔧 Lever',0,-24);ctx.restore();}
   function drawDeer(d){const s=iso(d.gx,d.gy),working=d.target&&d.atWork>.5;const sc=(d.held?1.18:1),bob=Math.sin(d.bob)*1.5*Math.min(1,Math.hypot(d.vx,d.vy)*20+(working?.3:0));
     const hl=(hidden&&d.target&&d.target.type==='struct')?hideLift:0;
     ctx.fillStyle='rgba(50,70,35,.22)';ctx.beginPath();ctx.ellipse(s.x,s.y,11,5,0,0,6.28);ctx.fill();
@@ -241,17 +249,17 @@
     if(!started){return;}
     ctx.save();ctx.translate(panX,panY);ctx.scale(zoom,zoom);
     drawGround();
-    const ents=[];for(const f of flora)ents.push({e:f,d:f.gx+f.gy,k:'f'});for(const r of raws)ents.push({e:r,d:r.gx+r.gy,k:'r'});for(const s of sites)ents.push({e:s,d:s.gx+s.gy,k:'s'});for(const st of structs)ents.push({e:st,d:st.gx+st.gy,k:'S'});for(const h of herd)ents.push({e:h,d:h.gx+h.gy+(h.held?99:0),k:'d'});if(human&&phase==='active')ents.push({e:human,d:human.gx+human.gy+50,k:'h'});
+    const ents=[];for(const f of flora)ents.push({e:f,d:f.gx+f.gy,k:'f'});for(const r of raws)ents.push({e:r,d:r.gx+r.gy,k:'r'});for(const s of sites)ents.push({e:s,d:s.gx+s.gy,k:'s'});for(const st of structs)ents.push({e:st,d:st.gx+st.gy,k:'S'});if(leverBuilt&&leverPos)ents.push({e:leverPos,d:leverPos.gx+leverPos.gy,k:'L'});for(const h of herd)ents.push({e:h,d:h.gx+h.gy+(h.held?99:0),k:'d'});if(human&&phase==='active')ents.push({e:human,d:human.gx+human.gy+50,k:'h'});
     ents.sort((a,b)=>a.d-b.d);
-    for(const o of ents){if(o.k==='f')drawFlora(o.e);else if(o.k==='r')drawRaw(o.e);else if(o.k==='s')drawSite(o.e);else if(o.k==='S')drawStruct(o.e);else if(o.k==='d')drawDeer(o.e);else drawHuman();}
+    for(const o of ents){if(o.k==='f')drawFlora(o.e);else if(o.k==='r')drawRaw(o.e);else if(o.k==='s')drawSite(o.e);else if(o.k==='S')drawStruct(o.e);else if(o.k==='L')drawLever(o.e);else if(o.k==='d')drawDeer(o.e);else drawHuman();}
     ctx.restore();
-    for(const q of parts){ctx.globalAlpha=Math.max(0,q.life);ctx.font='13px serif';ctx.textAlign='center';ctx.fillText(q.t==='heart'?'♥':q.t==='food'?'🫐':'🪨',q.x,q.y);}ctx.globalAlpha=1;
+    for(const q of parts){ctx.globalAlpha=Math.max(0,q.life);ctx.font='13px serif';ctx.textAlign='center';ctx.fillText({heart:'♥',food:'🫐',stone:'🪨',wood:'🪵',lumber:'🟫',bricks:'🧱'}[q.t]||'•',q.x,q.y);}ctx.globalAlpha=1;
     edgeArrow();nightTint();}
 
   const $=id=>document.getElementById(id);let last=performance.now(),hudT=0;
   function center(){const m=iso(GW/2,GH/2);panX=W/2-m.x*zoom;panY=H/2-m.y*zoom;}
   function loop(t){let dt=(t-last)/1000;last=t;if(dt>.05)dt=.05;step(dt);render();
-    hudT+=dt;if(hudT>.15){hudT=0;$('food').textContent=res.food;$('stone').textContent=res.stone;$('built').textContent=structs.length;$('rb').style.width=Math.round(readiness*100)+'%';$('sb').style.width=Math.round(suspicion*100)+'%';$('wb').style.width=Math.round(wariness*100)+'%';$('clock').textContent=isDay()?'☀️':'🌙';$('lever').textContent=hidden?'⬆️ Resurface':'🕳️ Go to Ground';}
+    hudT+=dt;if(hudT>.15){hudT=0;$('food').textContent=res.food;$('stone').textContent=res.stone;$('wood').textContent=res.wood;$('lumber').textContent=res.lumber;$('bricks').textContent=res.bricks;$('rb').style.width=Math.round(readiness*100)+'%';$('sb').style.width=Math.round(suspicion*100)+'%';$('wb').style.width=Math.round(wariness*100)+'%';$('clock').textContent=isDay()?'☀️':'🌙';$('lever').textContent=!leverBuilt?'🔒 Master Lever':(hidden?'⬆️ Resurface':'🕳️ Go to Ground');updateGuide();}
     requestAnimationFrame(loop);}
   resize();requestAnimationFrame(loop);
 })();
