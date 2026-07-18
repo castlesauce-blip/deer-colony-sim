@@ -62,6 +62,8 @@
   const BIMG={};
   ['farm','mine','lumber','mason','warehouse','deerhouse','well','warren','watchtower','townhall'].forEach(n=>{const im=new Image();im.onload=()=>imgLoaded++;im.src='assets/buildings/'+n+'.png';BIMG[n]=im;});
   const BLD_OF={farm:'farm',mine:'mine',lumber:'lumber',mason:'mason',warren:'warren',watchtower:'watchtower',tunnels:'deerhouse',lever:'townhall'};
+  const TIMG={};
+  ['grass','darkgrass','tilled','dirt','stone','water'].forEach(n=>{const im=new Image();im.onload=()=>imgLoaded++;im.src='assets/terrain/'+n+'.png';TIMG[n]=im;});
   function drawBld(name,cx,cy,H,alpha){const im=BIMG[name];if(!im||!im.complete||!im.naturalHeight)return false;const W=H*im.naturalWidth/im.naturalHeight;const pa=ctx.globalAlpha;ctx.globalAlpha=alpha;ctx.drawImage(im,cx-W/2,cy-H,W,H);ctx.globalAlpha=pa;return true;}
   function deerFrame(d){
     const spd=Math.hypot(d.vx,d.vy);
@@ -333,9 +335,17 @@
   }
 
   function diamond(x,y,f){ctx.fillStyle=f;ctx.beginPath();ctx.moveTo(x,y-TH/2);ctx.lineTo(x+TW/2,y);ctx.lineTo(x,y+TH/2);ctx.lineTo(x-TW/2,y);ctx.closePath();ctx.fill();}
-  function drawGround(){const tt=performance.now()/600;for(let gy=0;gy<GH;gy++)for(let gx=0;gx<GW;gx++){const s=iso(gx,gy);
-    if(isWater(gx,gy)){const shim=0.5+0.5*Math.sin(gx*0.8+gy*0.6+tt);diamond(s.x,s.y,shim>0.6?'#7bc8f6':'#5aa6e0');}
-    else{const v=((gx*7+gy*13)%5);diamond(s.x,s.y,['#a9cd82','#a2c97b','#adce88','#a6cb80','#9fc678'][v]);}}}
+  function drawGround(){
+    for(let d=0;d<GW+GH-1;d++){const gxlo=Math.max(0,d-GH+1),gxhi=Math.min(d,GW-1);
+      for(let gx=gxlo;gx<=gxhi;gx++){const gy=d-gx;const s=iso(gx,gy);
+        const spx=s.x*zoom+panX,spy=s.y*zoom+panY;
+        if(spx<-80||spx>W+80||spy<-90||spy>H+130)continue;
+        const wa=isWater(gx,gy);const im=wa?TIMG.water:(((gx*7+gy*13)%7)===0?TIMG.darkgrass:TIMG.grass);
+        if(im&&im.complete&&im.naturalHeight){const dw=TW+3,dh=dw*im.naturalHeight/im.naturalWidth;ctx.drawImage(im,s.x-dw/2,s.y-TH/2,dw,dh);}
+        else diamond(s.x,s.y,wa?'#5aa6e0':'#a2c97b');
+      }
+    }
+  }
   function drawFlora(f){const s=iso(f.gx,f.gy),sc=f.s;ctx.save();ctx.translate(s.x,s.y);ctx.fillStyle='rgba(50,70,35,.18)';ctx.beginPath();ctx.ellipse(0,2,10*sc,4*sc,0,0,6.28);ctx.fill();ctx.scale(sc,sc);
     if(f.t==='tree'){ctx.fillStyle='#7a5230';ctx.fillRect(-2,-8,4,10);ctx.fillStyle='hsl('+(100+f.tone)+',40%,42%)';ctx.beginPath();ctx.arc(0,-16,12,0,6.28);ctx.fill();}
     else if(f.t==='pine'){ctx.fillStyle='#7a5230';ctx.fillRect(-2,-6,4,8);ctx.fillStyle='#3f6b3a';ctx.beginPath();ctx.moveTo(0,-28);ctx.lineTo(9,-6);ctx.lineTo(-9,-6);ctx.closePath();ctx.fill();}
