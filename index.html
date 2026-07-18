@@ -12,7 +12,7 @@
   .meters{position:fixed;right:calc(8px + env(safe-area-inset-right));top:calc(8px + env(safe-area-inset-top));text-align:right;pointer-events:none;font-size:10.5px;font-weight:700;background:rgba(255,253,246,.80);padding:6px 9px;border-radius:12px;box-shadow:0 2px 8px rgba(80,70,40,.18);}
   .bar{width:100px;height:8px;border-radius:8px;background:rgba(0,0,0,.14);overflow:hidden;margin:2px 0 6px auto;}
   .bar>i{display:block;height:100%;width:0%;transition:width .3s;}
-  #rb{background:linear-gradient(90deg,#b98adf,#7b5bd6);}#sb{background:linear-gradient(90deg,#ffd479,#e8887f);}#wb{background:linear-gradient(90deg,#e8887f,#b5484a);}
+  #rb{background:linear-gradient(90deg,#b98adf,#7b5bd6);}#sb{background:linear-gradient(90deg,#ffd479,#e8887f);}#wb{background:linear-gradient(90deg,#e8887f,#b5484a);}#hb{background:linear-gradient(90deg,#ffd479,#7cc36b);}
   .clock{position:fixed;right:calc(10px + env(safe-area-inset-right));top:calc(108px + env(safe-area-inset-top));font-size:20px;pointer-events:none;background:rgba(255,253,246,.72);padding:1px 8px;border-radius:10px;}
   .zoom{position:fixed;right:calc(12px + env(safe-area-inset-right));bottom:calc(16px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;}
   .zoom button{width:40px;height:40px;border:0;border-radius:12px;background:rgba(255,255,255,.85);font-size:22px;font-weight:800;color:#5c4f3a;box-shadow:0 2px 8px rgba(80,70,40,.2);}
@@ -32,7 +32,7 @@
 <body>
 <canvas id="stage"></canvas>
 <div class="hud"><span>🫐<b id="food">0</b></span><span>🪨<b id="stone">0</b></span><span>🪵<b id="wood">0</b></span><span>🟫<b id="lumber">0</b></span><span>🧱<b id="bricks">0</b></span></div>
-<div class="meters"><span>Readiness → uprising</span><div class="bar"><i id="rb"></i></div><span>Suspicion</span><div class="bar"><i id="sb"></i></div><span>Wariness → more humans</span><div class="bar"><i id="wb"></i></div></div>
+<div class="meters"><span>Readiness → uprising</span><div class="bar"><i id="rb"></i></div><span>Suspicion</span><div class="bar"><i id="sb"></i></div><span>Wariness → more humans</span><div class="bar"><i id="wb"></i></div><span>Happiness 😊</span><div class="bar"><i id="hb"></i></div></div>
 <div class="clock" id="clock">☀️</div>
 <div class="zoom"><button id="zin">+</button><button id="zout">−</button></div>
 <button class="lever" id="lever">🕳️ Go to Ground</button>
@@ -99,6 +99,7 @@
   let decos=[], decorating=false, placeSel=null;
   let bridges=new Set();
   let bmode=false, buildSel=null;
+  let happiness=0.35, autoAnnounced=false;
   const BCOST={farm:{cF:12,cS:8},mine:{cF:8,cS:12},lumber:{cF:15,cS:15},mason:{cF:15,cS:15},lever:{cL:40,cB:40},warren:{cF:20,cS:12},watchtower:{cF:14,cS:22},tunnels:{cL:18,cB:14}};
   const BLIST=[['farm','🌾 Farm'],['mine','⛏ Mine'],['lumber','🪵 Lumber Mill'],['mason','🧱 Stone Mason'],['warren','🏡 Warren'],['watchtower','🔭 Watchtower'],['tunnels','🕳️ Tunnels'],['lever','🔧 Colony Hall']];
   const isBridge=(gx,gy)=>bridges.has(Math.round(gx)+'_'+Math.round(gy));
@@ -119,7 +120,7 @@
   const isWater=(gx,gy)=>water.has(Math.round(gx)+'_'+Math.round(gy));
   function mkSlots(){return [[-.55,.4],[.55,.4],[0,-.55]].map(([ox,oy])=>({ox,oy,taken:null}));}
   const NAMES=['Fern','Pip','Willow','Acorn','Clover','Maple','Hazel','Sorrel'];
-  function mk(gx,gy){const prefs=['forage','mine'];return {gx,gy,vx:0,vy:0,face:1,bob:rand(0,6.28),name:NAMES[Math.floor(Math.random()*NAMES.length)],pref:prefs[Math.floor(Math.random()*2)],target:null,slot:null,atWork:0,held:false,lift:0,tone:rand(-12,12),seen:0,roamx:gx,roamy:gy,roamT:0,xp:0,lvl:0,job:null};}
+  function mk(gx,gy){const prefs=['forage','mine'];return {gx,gy,vx:0,vy:0,face:1,bob:rand(0,6.28),name:NAMES[Math.floor(Math.random()*NAMES.length)],pref:prefs[Math.floor(Math.random()*2)],target:null,slot:null,atWork:0,held:false,lift:0,tone:rand(-12,12),seen:0,roamx:gx,roamy:gy,roamT:0,xp:0,lvl:0,job:null,auto:false,autoT:0,autoCd:0};}
   function landSpot(pad){for(let i=0;i<200;i++){const gx=rand(pad,GW-1-pad),gy=rand(pad,GH-1-pad);if(!isWater(gx,gy))return{gx,gy};}return{gx:GW/2,gy:GH/2};}
 
   function genWater(){water=new Set();
@@ -212,7 +213,7 @@
     if(stType){const st=structs.find(s=>s.type===stType&&s.slots.some(sl=>!sl.taken));if(st){obj=st;kind='struct';}}
     if(!obj){const r=raws.find(rr=>rr.k===job&&rr.slots.some(sl=>!sl.taken));if(r){obj=r;kind='raw';}}
     if(!obj){showWarn('No open '+job+' spot — gather node or build one');return;}
-    const slot=obj.slots.find(sl=>!sl.taken);slot.taken=d;d.slot=slot;d.target={type:kind,obj};d.atWork=0;firstAssign=true;}
+    const slot=obj.slots.find(sl=>!sl.taken);slot.taken=d;d.slot=slot;d.target={type:kind,obj};d.atWork=0;d.auto=false;firstAssign=true;}
   const _rp=document.getElementById('rpanel');
   function buildRoster(){let h='<div style="max-width:520px;margin:0 auto;background:#fffdf6;border-radius:16px;padding:14px;box-shadow:0 10px 40px rgba(0,0,0,.4);"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><b style="font-size:18px;color:#5c4f3a;">🦌 The Herd ('+herd.length+')</b><button id="rclose" style="border:0;background:#e8887f;color:#fff;font-weight:800;border-radius:10px;padding:6px 14px;">Done</button></div><div style="font-size:11px;color:#8a7a5c;margin-bottom:6px;">Tap a job to reassign a deer.</div>';
     herd.forEach((d,i)=>{const lv=['','✦','✦✦'][d.lvl]||'';h+='<div style="display:flex;align-items:center;gap:5px;padding:6px 2px;border-top:1px solid #efe7d4;flex-wrap:wrap;"><b style="min-width:54px;color:#5c4f3a;font-size:13px;">'+d.name+'</b><span style="font-size:11px;color:#e0913c;min-width:22px;">'+lv+'</span><span style="flex:1;font-size:12px;color:#8a7a5c;min-width:80px;">'+deerJob(d)+'</span>';
@@ -226,7 +227,7 @@
   function assignDrop(d){snapToLand(d);let best=null,bt=null,bd=70*zoom;
     for(const r of raws){const s=W2S(iso(r.gx,r.gy).x,iso(r.gx,r.gy).y);const dd=Math.hypot(s.x-ptr.x,s.y-ptr.y);if(dd<bd){bd=dd;best=r;bt='raw';}}
     for(const st of structs){if(!st.slots||!st.slots.length)continue;const s=W2S(iso(st.gx,st.gy).x,iso(st.gx,st.gy).y);const dd=Math.hypot(s.x-ptr.x,s.y-ptr.y);if(dd<bd){bd=dd;best=st;bt='struct';}}
-    if(best){const slot=best.slots.find(s=>!s.taken);if(slot){slot.taken=d;d.slot=slot;d.target={type:bt,obj:best};d.atWork=0;firstAssign=true;}else{d.roamx=d.gx;d.roamy=d.gy;d.roamT=14;}}else{d.roamx=d.gx;d.roamy=d.gy;d.roamT=14;}}
+    if(best){const slot=best.slots.find(s=>!s.taken);if(slot){slot.taken=d;d.slot=slot;d.target={type:bt,obj:best};d.atWork=0;d.auto=false;firstAssign=true;}else{d.roamx=d.gx;d.roamy=d.gy;d.roamT=14;}}else{d.roamx=d.gx;d.roamy=d.gy;d.roamT=14;}}
   const SNAME={farm:'Farm',mine:'Mine',lumber:'Lumber Mill',mason:'Stone Mason',lever:'Master Lever',warren:'Warren',watchtower:'Watchtower',tunnels:'Tunnels'};
   function tryBuild(s){if(s.type==='lever'||s.type==='tunnels'){if(res.lumber>=s.cL&&res.bricks>=s.cB){res.lumber-=s.cL;res.bricks-=s.cB;s.building=true;s.prog=0;showWarn('🔨 Building '+SNAME[s.type]+'…');}else showWarn('Need '+s.cL+'🟫 + '+s.cB+'🧱 (refine wood→lumber, stone→bricks first)');return;}if(res.food>=s.cF&&res.stone>=s.cS){res.food-=s.cF;res.stone-=s.cS;s.building=true;s.prog=0;showWarn('🔨 Building '+SNAME[s.type]+'…');}else showWarn('Need '+s.cF+'🫐 + '+s.cS+'🪨 to build');}
   function zoomAt(sx,sy,f){const nz=clamp(zoom*f,0.35,1.7);panX=sx-(sx-panX)*(nz/zoom);panY=sy-(sy-panY)*(nz/zoom);zoom=nz;}
@@ -288,7 +289,7 @@
       if(d.target&&d.slot){const kind=d.target.type,arr=kind==='raw'?raws:structs,idx=arr.indexOf(d.target.obj);const slotIdx=idx>=0?d.target.obj.slots.indexOf(d.slot):-1;o.tgt=(idx>=0&&slotIdx>=0)?{kind,idx,slotIdx}:null;}else o.tgt=null;
       return o;});
     return {v:1,GW,GH,patrolMult,water:[...water],bridges:[...bridges],flora,coverPts,raws:stripSlots(raws),sites,structs:stripSlots(structs),herd:deer,decos,res:Object.assign({},res),
-      readiness,suspicion,wariness,hidden,leverBuilt,leverPos,firstAssign,milestoneIdx,unlocked,watchtowerBuilt,tunnelsBuilt,xpOn,rallyReady,rallyActive,rallyCd,uprisingReady,liberated,elapsed,time,warrenTimer,cfg:Object.assign({},cfg)};
+      readiness,suspicion,wariness,hidden,leverBuilt,leverPos,firstAssign,milestoneIdx,unlocked,watchtowerBuilt,tunnelsBuilt,xpOn,rallyReady,rallyActive,rallyCd,uprisingReady,liberated,happiness,autoAnnounced,elapsed,time,warrenTimer,cfg:Object.assign({},cfg)};
   }
   function saveGame(){if(!started||won)return;try{localStorage.setItem(SAVE_KEY,JSON.stringify(serialize()));}catch(e){}}
   function hasSave(){try{return !!localStorage.getItem(SAVE_KEY);}catch(e){return false;}}
@@ -305,9 +306,9 @@
       readiness=s.readiness||0;suspicion=s.suspicion||0;wariness=s.wariness||0;hidden=!!s.hidden;leverBuilt=!!s.leverBuilt;leverPos=s.leverPos||null;firstAssign=!!s.firstAssign;
       milestoneIdx=s.milestoneIdx||0;unlocked=Object.assign({warren:false,watchtower:false,tunnels:false},s.unlocked||{});
       watchtowerBuilt=!!s.watchtowerBuilt;tunnelsBuilt=!!s.tunnelsBuilt;xpOn=!!s.xpOn;rallyReady=!!s.rallyReady;rallyActive=s.rallyActive||0;rallyCd=s.rallyCd||0;uprisingReady=!!s.uprisingReady;liberated=!!s.liberated;
-      elapsed=s.elapsed||0;time=s.time||0.2;warrenTimer=s.warrenTimer||0;won=false;uprising=null;
+      elapsed=s.elapsed||0;time=s.time||0.2;warrenTimer=s.warrenTimer||0;happiness=s.happiness||0.35;autoAnnounced=!!s.autoAnnounced;won=false;uprising=null;
       Object.assign(cfg,s.cfg||{});
-      herd=(s.herd||[]).map(o=>{const d=Object.assign({},o);d.held=false;d.target=null;d.slot=null;return d;});
+      herd=(s.herd||[]).map(o=>{const d=Object.assign({},o);d.held=false;d.target=null;d.slot=null;d.auto=false;return d;});
       (s.herd||[]).forEach((o,i)=>{if(o.tgt){const arr=o.tgt.kind==='raw'?raws:structs,obj=arr[o.tgt.idx];if(obj&&obj.slots&&obj.slots[o.tgt.slotIdx]){const d=herd[i];d.target={type:o.tgt.kind,obj};d.slot=obj.slots[o.tgt.slotIdx];d.slot.taken=d;}}});
       human=null;phase='none';phaseT=0;parts.length=0;decorating=false;placeSel=null;prevTimeW=time;
       if(rallyReady)document.getElementById('rally').style.display='block';
@@ -325,6 +326,10 @@
     while(milestoneIdx<MILES.length&&readiness>=MILES[milestoneIdx].r){MILES[milestoneIdx].f();milestoneIdx++;}
     if(uprising){uprising.t-=dt;if(uprising.t<=0)winGame();}
     for(const dc of decos){if(dc.fn==='ready'&&!uprising&&!liberated)readiness=Math.min(1,readiness+dt*0.00008);else if(dc.fn==='calm')suspicion=Math.max(0,suspicion-dt*0.012);}
+    // happiness (amenities + safety) gates the passive auto-forage
+    {let ht=0.15+Math.min(0.45,decos.length*0.03);for(const dc of decos)if(dc.fn)ht+=0.035;ht+=Math.min(0.15,structs.length*0.02);if(unlocked.warren)ht+=0.05;if(liberated)ht+=0.25;ht=clamp(ht-suspicion*0.35,0.05,1);happiness+=(ht-happiness)*Math.min(1,dt*0.12);}
+    if(!autoAnnounced&&happiness>=0.5){autoAnnounced=true;showWarn('😊 Happy herd! Content deer now forage on their own for a spell.');}
+    const autoActive=happiness>=0.5&&!hidden&&!uprising&&phase==='none';
     if(rallyActive>0)rallyActive-=dt;else if(rallyCd>0)rallyCd-=dt;
     {const w=structs.find(s=>s.type==='warren');if(w&&!uprising&&herd.length<HERD_CAP){warrenTimer+=dt;if(warrenTimer>=30){warrenTimer=0;spawnDeer(1);showWarn('🍼 A fawn is born in the Warren.');}}}
     elapsed+=dt;const warmup=Math.min(1,elapsed/90);
@@ -344,6 +349,7 @@
       d.seen=Math.max(0,d.seen-dt*2);
       if(d.held){const w=S2W(ptr.x,ptr.y+16*zoom);const g=unIso(w.x,w.y);d.gx=lerp(d.gx,clamp(g.gx,0,GW-1),.35);d.gy=lerp(d.gy,clamp(g.gy,0,GH-1),.35);d.lift=lerp(d.lift,20,.3);d.bob+=dt*3;continue;}
       d.lift=lerp(d.lift,0,.25);
+      if(d.auto&&d.target){d.autoT-=dt;if(d.autoT<=0){releaseSlot(d);d.target=null;d.auto=false;d.autoCd=rand(5,10);d.roamx=d.gx;d.roamy=d.gy;d.roamT=rand(2,5);}}
       if(d.target){
         const o=d.target.obj,tx=o.gx+d.slot.ox,ty=o.gy+d.slot.oy,dd=Math.hypot(tx-d.gx,ty-d.gy);
         if(dd>.15){d.vx+=(tx-d.gx)*.03;d.vy+=(ty-d.gy)*.03;d.atWork=Math.max(0,d.atWork-dt*2);}
@@ -355,6 +361,7 @@
                 if(a2<human.half){suspicion=Math.min(1,suspicion+dt*0.16);wariness=Math.min(1,wariness+dt*0.05);d.seen=1;}}}}
         }
       } else {
+        if(autoActive&&(d.autoCd=(d.autoCd||0)-dt)<=0&&Math.random()<dt*(0.10+happiness*0.35)){let best=null,bd=9;for(const r of raws){if(r.slots.some(sl=>!sl.taken)){const dq=Math.hypot(r.gx-d.gx,r.gy-d.gy);if(dq<bd){bd=dq;best=r;}}}if(best){const slot=best.slots.find(sl=>!sl.taken);slot.taken=d;d.slot=slot;d.target={type:'raw',obj:best};d.atWork=0;d.auto=true;d.autoT=rand(7,13);}}
         d.roamT-=dt;if(d.roamT<=0){const sp=landSpot(1);d.roamx=sp.gx;d.roamy=sp.gy;d.roamT=rand(9,18);}
         d.vx+=(d.roamx-d.gx)*.0025;d.vy+=(d.roamy-d.gy)*.0025;
         for(const o of herd){if(o===d||o.held)continue;const dx=o.gx-d.gx,dy=o.gy-d.gy,l=Math.hypot(dx,dy)||1;if(l<1.8){d.vx-=dx/l*.05;d.vy-=dy/l*.05;}}
@@ -467,7 +474,7 @@
   function center(){const m=iso(GW/2,GH/2);panX=W/2-m.x*zoom;panY=H/2-m.y*zoom;}
   function loop(t){let dt=(t-last)/1000;last=t;if(dt>.05)dt=.05;step(dt);render();
     if(started&&!won){saveT+=dt;if(saveT>5){saveT=0;saveGame();}}
-    hudT+=dt;if(hudT>.15){hudT=0;$('food').textContent=res.food;$('stone').textContent=res.stone;$('wood').textContent=res.wood;$('lumber').textContent=res.lumber;$('bricks').textContent=res.bricks;$('rb').style.width=Math.round(readiness*100)+'%';$('sb').style.width=Math.round(suspicion*100)+'%';$('wb').style.width=Math.round(wariness*100)+'%';$('clock').textContent=uprising?'🔥'+Math.ceil(uprising.t)+'s':(isDay()?'☀️':'🌙');$('lever').textContent=!(leverBuilt||tunnelsBuilt)?'🔒 Master Lever':(hidden?'⬆️ Resurface':'🕳️ Go to Ground');if(rallyReady){$('rally').textContent=rallyActive>0?'📣 '+Math.ceil(rallyActive)+'s':(rallyCd>0?'⏳ '+Math.ceil(rallyCd)+'s':'📣 Rally');}updateGuide();}
+    hudT+=dt;if(hudT>.15){hudT=0;$('food').textContent=res.food;$('stone').textContent=res.stone;$('wood').textContent=res.wood;$('lumber').textContent=res.lumber;$('bricks').textContent=res.bricks;$('rb').style.width=Math.round(readiness*100)+'%';$('sb').style.width=Math.round(suspicion*100)+'%';$('wb').style.width=Math.round(wariness*100)+'%';$('hb').style.width=Math.round(happiness*100)+'%';$('clock').textContent=uprising?'🔥'+Math.ceil(uprising.t)+'s':(isDay()?'☀️':'🌙');$('lever').textContent=!(leverBuilt||tunnelsBuilt)?'🔒 Master Lever':(hidden?'⬆️ Resurface':'🕳️ Go to Ground');if(rallyReady){$('rally').textContent=rallyActive>0?'📣 '+Math.ceil(rallyActive)+'s':(rallyCd>0?'⏳ '+Math.ceil(rallyCd)+'s':'📣 Rally');}updateGuide();}
     requestAnimationFrame(loop);}
   if(hasSave())document.getElementById('continueBtn').style.display='block';
   addEventListener('beforeunload',saveGame);
