@@ -8,15 +8,15 @@
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;}
   html,body{margin:0;height:100%;overflow:hidden;background:#9ec27a;font-family:ui-rounded,"Segoe UI",system-ui,sans-serif;color:#3d3326;}
   #stage{position:fixed;inset:0;touch-action:none;display:block;}
-  .hud{position:fixed;left:12px;top:10px;display:flex;gap:12px;font-size:15px;font-weight:700;text-shadow:0 1px 0 rgba(255,255,255,.55);pointer-events:none;}
-  .meters{position:fixed;right:12px;top:8px;text-align:right;pointer-events:none;font-size:11px;font-weight:700;}
-  .bar{width:128px;height:8px;border-radius:8px;background:rgba(0,0,0,.14);overflow:hidden;margin:2px 0 6px auto;}
+  .hud{position:fixed;left:calc(8px + env(safe-area-inset-left));top:calc(8px + env(safe-area-inset-top));display:flex;gap:7px;font-size:13px;font-weight:800;color:#3d3326;background:rgba(255,253,246,.80);padding:5px 9px;border-radius:12px;box-shadow:0 2px 8px rgba(80,70,40,.18);pointer-events:none;max-width:63vw;flex-wrap:wrap;}
+  .meters{position:fixed;right:calc(8px + env(safe-area-inset-right));top:calc(8px + env(safe-area-inset-top));text-align:right;pointer-events:none;font-size:10.5px;font-weight:700;background:rgba(255,253,246,.80);padding:6px 9px;border-radius:12px;box-shadow:0 2px 8px rgba(80,70,40,.18);}
+  .bar{width:100px;height:8px;border-radius:8px;background:rgba(0,0,0,.14);overflow:hidden;margin:2px 0 6px auto;}
   .bar>i{display:block;height:100%;width:0%;transition:width .3s;}
   #rb{background:linear-gradient(90deg,#b98adf,#7b5bd6);}#sb{background:linear-gradient(90deg,#ffd479,#e8887f);}#wb{background:linear-gradient(90deg,#e8887f,#b5484a);}
-  .clock{position:fixed;right:12px;top:70px;font-size:20px;pointer-events:none;}
-  .zoom{position:fixed;right:12px;bottom:16px;display:flex;flex-direction:column;gap:8px;}
+  .clock{position:fixed;right:calc(10px + env(safe-area-inset-right));top:calc(108px + env(safe-area-inset-top));font-size:20px;pointer-events:none;background:rgba(255,253,246,.72);padding:1px 8px;border-radius:10px;}
+  .zoom{position:fixed;right:calc(12px + env(safe-area-inset-right));bottom:calc(16px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;}
   .zoom button{width:40px;height:40px;border:0;border-radius:12px;background:rgba(255,255,255,.85);font-size:22px;font-weight:800;color:#5c4f3a;box-shadow:0 2px 8px rgba(80,70,40,.2);}
-  .lever{position:fixed;left:12px;bottom:16px;border:0;border-radius:14px;padding:12px 16px;font-size:15px;font-weight:800;color:#fff;background:#7b5bd6;box-shadow:0 3px 12px rgba(80,60,140,.35);}
+  .lever{position:fixed;left:calc(12px + env(safe-area-inset-left));bottom:calc(16px + env(safe-area-inset-bottom));border:0;border-radius:14px;padding:11px 15px;font-size:14px;font-weight:800;color:#fff;background:#7b5bd6;box-shadow:0 3px 12px rgba(80,60,140,.35);}
   .hint{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);max-width:92vw;text-align:center;background:rgba(255,255,255,.85);color:#5c4f3a;padding:8px 14px;border-radius:999px;font-size:12.5px;font-weight:600;transition:opacity .8s;pointer-events:none;box-shadow:0 3px 12px rgba(80,70,40,.18);}
   .warn{position:fixed;left:50%;top:14%;transform:translateX(-50%);background:rgba(232,136,127,.95);color:#fff;font-weight:800;padding:9px 18px;border-radius:12px;font-size:15px;opacity:0;transition:opacity .3s;pointer-events:none;box-shadow:0 6px 20px rgba(0,0,0,.25);}
   #setup{position:fixed;inset:0;display:grid;place-items:center;background:rgba(40,34,26,.82);z-index:5;overflow:auto;}
@@ -41,7 +41,7 @@
 <button class="lever" id="deco" style="left:12px;bottom:124px;background:#5aa06a;">🎨 Decorate</button>
 <div id="tray" style="display:none;position:fixed;left:0;right:0;bottom:0;background:rgba(255,253,246,.97);padding:7px 6px;overflow-x:auto;white-space:nowrap;box-shadow:0 -3px 14px rgba(80,70,40,.22);z-index:4;"></div>
 <div class="warn" id="warn"></div>
-<div id="end" style="display:none;position:fixed;inset:0;place-items:center;background:rgba(40,34,26,.86);z-index:6;"><div class="card" style="text-align:center;"><h2 style="font-size:26px;">🌿</h2><p style="font-size:14px;color:#5c4f3a;line-height:1.55;margin:6px 0 4px;"></p><button class="begin" onclick="location.reload()">Play again →</button></div></div>
+<div id="end" style="display:none;position:fixed;inset:0;place-items:center;background:rgba(40,34,26,.86);z-index:6;"><div class="card" style="text-align:center;"><h2 style="font-size:26px;">🌿</h2><p style="font-size:14px;color:#5c4f3a;line-height:1.55;margin:6px 0 4px;"></p><button class="begin" id="keepBtn">Keep building →</button><button class="begin" id="newBtn" style="background:#8a7a5c;margin-top:8px;">New colony</button></div></div>
 <div class="hint" id="hint">Drag a deer onto a 🫐bush / 🪨rock to hand-gather · TAP a build site to build · assign deer to a Mine/Farm for way more output · 🪵chop logs → 🪵Lumber Mill=🟫lumber · Stone Mason=🧱bricks → build the 🔧 Master Lever</div>
 <div id="setup"><div class="card">
   <h2>🦌 Deer Colony</h2><div class="sub">Set up your world</div>
@@ -76,7 +76,7 @@
   let unlocked={warren:false,watchtower:false,tunnels:false};
   let watchtowerBuilt=false, tunnelsBuilt=false, xpOn=false;
   let rallyReady=false, rallyActive=0, rallyCd=0;
-  let uprisingReady=false, uprising=null, won=false;
+  let uprisingReady=false, uprising=null, won=false, liberated=false;
   const HERD_CAP=9;
   // ---- decorate mode ----
   let decos=[], decorating=false, placeSel=null;
@@ -135,7 +135,7 @@
 
   const parts=[];const pop=(x,y,t)=>parts.push({x,y,vx:rand(-.4,.4),vy:rand(-.8,-.3),life:1,t});
   // day/night + human warnings
-  let time=0.2;const DAYLEN=70;const isDay=()=>time>0.12&&time<0.62;
+  let time=0.2;const DAYLEN=120;const isDay=()=>time>0.12&&time<0.62;
   let human=null,phase='none',phaseT=0,warnDir='';
   const DIRS={W:[-1,0,'the WEST ⬅'],E:[1,0,'the EAST ➡'],N:[0,-1,'the NORTH ⬆'],S:[0,1,'the SOUTH ⬇']};
   function startWarning(){const keys=Object.keys(DIRS);warnDir=keys[Math.floor(Math.random()*keys.length)];phase='warning';phaseT=(watchtowerBuilt?9.5:6)-(uprising?4:0);showWarn('⚠ Humans approaching from '+DIRS[warnDir][2]);}
@@ -191,6 +191,8 @@
   function hideSetup(){const s=document.getElementById('setup');s.style.opacity=0;s.style.transition='opacity .6s';setTimeout(()=>s.remove(),600);}
   document.getElementById('begin').onclick=()=>{clearSave();genWorld(cfg);started=true;hideSetup();};
   document.getElementById('continueBtn').onclick=()=>{if(loadGame())hideSetup();else showWarn('Save was unreadable — starting fresh instead.');};
+  document.getElementById('keepBtn').onclick=()=>{document.getElementById('end').style.display='none';};
+  document.getElementById('newBtn').onclick=()=>{clearSave();location.reload();};
 
   function nearCover(d){for(const c of coverPts){if(Math.hypot(c.gx-d.gx,c.gy-d.gy)<1.15)return true;}return false;}
 
@@ -212,7 +214,7 @@
   ];
   const UPRISE_LEN=42;
   function startUprising(){uprising={t:UPRISE_LEN};time=0.30;wariness=1;phase='none';human=null;showWarn('🔥 THE UPRISING — hold the colony!');document.getElementById('rise').style.display='none';}
-  function winGame(){won=true;uprising=null;clearSave();showEnd('🌿 The forest is ours','The humans have packed up and left for good — the woods are too much trouble now. Your colony is free. Long live the herd!');}
+  function winGame(){uprising=null;liberated=true;human=null;phase='none';document.getElementById('rise').style.display='none';saveGame();showEnd('🌿 The forest is ours','The humans have packed up and left for good — the woods are too much trouble now. Your colony is free. Keep tending it as long as you like.');}
   function failUprising(){uprising=null;readiness=0.8;suspicion=0.3;wariness=1;document.getElementById('rise').style.display='block';showWarn('💨 Scattered! The deer regroup — rally and try again.');}
   function showEnd(title,body){const e=document.getElementById('end');e.querySelector('h2').textContent=title;e.querySelector('p').textContent=body;e.style.display='grid';}
   function drawTech(st){const s=iso(st.gx,st.gy);ctx.fillStyle='rgba(50,70,35,.25)';ctx.beginPath();ctx.ellipse(s.x,s.y,24,10,0,0,6.28);ctx.fill();ctx.save();ctx.globalAlpha=hidden?0.35:1;ctx.translate(s.x,s.y+hideLift);
@@ -231,7 +233,7 @@
       if(d.target&&d.slot){const kind=d.target.type,arr=kind==='raw'?raws:structs,idx=arr.indexOf(d.target.obj);const slotIdx=idx>=0?d.target.obj.slots.indexOf(d.slot):-1;o.tgt=(idx>=0&&slotIdx>=0)?{kind,idx,slotIdx}:null;}else o.tgt=null;
       return o;});
     return {v:1,GW,GH,patrolMult,water:[...water],flora,coverPts,raws:stripSlots(raws),sites,structs:stripSlots(structs),herd:deer,decos,res:Object.assign({},res),
-      readiness,suspicion,wariness,hidden,leverBuilt,leverPos,firstAssign,milestoneIdx,unlocked,watchtowerBuilt,tunnelsBuilt,xpOn,rallyReady,rallyActive,rallyCd,uprisingReady,elapsed,time,warrenTimer,cfg:Object.assign({},cfg)};
+      readiness,suspicion,wariness,hidden,leverBuilt,leverPos,firstAssign,milestoneIdx,unlocked,watchtowerBuilt,tunnelsBuilt,xpOn,rallyReady,rallyActive,rallyCd,uprisingReady,liberated,elapsed,time,warrenTimer,cfg:Object.assign({},cfg)};
   }
   function saveGame(){if(!started||won)return;try{localStorage.setItem(SAVE_KEY,JSON.stringify(serialize()));}catch(e){}}
   function hasSave(){try{return !!localStorage.getItem(SAVE_KEY);}catch(e){return false;}}
@@ -247,14 +249,14 @@
       Object.assign(res,{food:0,stone:0,wood:0,lumber:0,bricks:0},s.res||{});
       readiness=s.readiness||0;suspicion=s.suspicion||0;wariness=s.wariness||0;hidden=!!s.hidden;leverBuilt=!!s.leverBuilt;leverPos=s.leverPos||null;firstAssign=!!s.firstAssign;
       milestoneIdx=s.milestoneIdx||0;unlocked=Object.assign({warren:false,watchtower:false,tunnels:false},s.unlocked||{});
-      watchtowerBuilt=!!s.watchtowerBuilt;tunnelsBuilt=!!s.tunnelsBuilt;xpOn=!!s.xpOn;rallyReady=!!s.rallyReady;rallyActive=s.rallyActive||0;rallyCd=s.rallyCd||0;uprisingReady=!!s.uprisingReady;
+      watchtowerBuilt=!!s.watchtowerBuilt;tunnelsBuilt=!!s.tunnelsBuilt;xpOn=!!s.xpOn;rallyReady=!!s.rallyReady;rallyActive=s.rallyActive||0;rallyCd=s.rallyCd||0;uprisingReady=!!s.uprisingReady;liberated=!!s.liberated;
       elapsed=s.elapsed||0;time=s.time||0.2;warrenTimer=s.warrenTimer||0;won=false;uprising=null;
       Object.assign(cfg,s.cfg||{});
       herd=(s.herd||[]).map(o=>{const d=Object.assign({},o);d.held=false;d.target=null;d.slot=null;return d;});
       (s.herd||[]).forEach((o,i)=>{if(o.tgt){const arr=o.tgt.kind==='raw'?raws:structs,obj=arr[o.tgt.idx];if(obj&&obj.slots&&obj.slots[o.tgt.slotIdx]){const d=herd[i];d.target={type:o.tgt.kind,obj};d.slot=obj.slots[o.tgt.slotIdx];d.slot.taken=d;}}});
       human=null;phase='none';phaseT=0;parts.length=0;decorating=false;placeSel=null;prevTimeW=time;
       if(rallyReady)document.getElementById('rally').style.display='block';
-      if(uprisingReady)document.getElementById('rise').style.display='block';
+      if(uprisingReady&&!liberated)document.getElementById('rise').style.display='block';
       started=true;center();return true;
     }catch(e){return false;}
   }
@@ -262,16 +264,16 @@
   function step(dt){
     if(!started||won)return;
     time=(time+dt/DAYLEN)%1;
-    if(time<prevTimeW&&!uprising)readiness=Math.min(1,readiness+0.05);prevTimeW=time;
-    // quiet-thrive trickle: progress while unseen and productive
-    if(!uprising&&phase!=='active'&&!herd.some(d=>d.seen>0))readiness=Math.min(1,readiness+dt*0.003*Math.min(herd.length,6));
+    prevTimeW=time;
+    // readiness = legend of a thriving, hidden colony. Tuned to ~1 hour of engaged play to the Uprising.
+    if(!uprising&&!liberated){const _wk=herd.filter(d=>d.target&&d.slot).length;if(!herd.some(d=>d.seen>0))readiness=Math.min(1,readiness+dt*0.000278*clamp(0.6+0.09*_wk,0.6,1.7));}
     while(milestoneIdx<MILES.length&&readiness>=MILES[milestoneIdx].r){MILES[milestoneIdx].f();milestoneIdx++;}
     if(uprising){uprising.t-=dt;if(uprising.t<=0)winGame();}
-    for(const dc of decos){if(dc.fn==='ready'&&!uprising)readiness=Math.min(1,readiness+dt*0.0016);else if(dc.fn==='calm')suspicion=Math.max(0,suspicion-dt*0.012);}
+    for(const dc of decos){if(dc.fn==='ready'&&!uprising&&!liberated)readiness=Math.min(1,readiness+dt*0.00008);else if(dc.fn==='calm')suspicion=Math.max(0,suspicion-dt*0.012);}
     if(rallyActive>0)rallyActive-=dt;else if(rallyCd>0)rallyCd-=dt;
     {const w=structs.find(s=>s.type==='warren');if(w&&!uprising&&herd.length<HERD_CAP){warrenTimer+=dt;if(warrenTimer>=30){warrenTimer=0;spawnDeer(1);showWarn('🍼 A fawn is born in the Warren.');}}}
     elapsed+=dt;const warmup=Math.min(1,elapsed/90);
-    if(phase==='none'){if(uprising)startWarning();else if(isDay()&&Math.random()<dt*0.038*patrolMult*(0.3+0.7*warmup)*(1+2*wariness))startWarning();}
+    if(phase==='none'){if(uprising)startWarning();else if(!liberated&&isDay()&&Math.random()<dt*0.038*patrolMult*(0.3+0.7*warmup)*(1+2*wariness))startWarning();}
     else if(phase==='warning'){phaseT-=dt;if(phaseT<=0)spawnHuman();}
     else if(phase==='active'&&human){
       if(human.camp&&!human.camping){const dx=human.tx-human.gx,dy=human.ty-human.gy,dl=Math.hypot(dx,dy)||1;human.dirx=dx/dl;human.diry=dy/dl;human.gx+=human.dirx*dt*0.9;human.gy+=human.diry*dt*0.9;if(dl<0.6){human.camping=true;showWarn('🏕 Humans are camping here!');}}
@@ -280,7 +282,7 @@
     }
     if(!uprising&&!isDay()&&phase==='active'){human=null;phase='none';}
 
-    for(let i=sites.length-1;i>=0;i--){const s=sites[i];if(s.building){s.prog+=dt/(s.type==='lever'?9:4);if(s.prog>=1){if(s.type==='lever'){leverBuilt=true;leverPos={gx:s.gx,gy:s.gy};readiness=Math.min(1,readiness+0.25);showWarn('🔧 Master Lever built! Tap Go to Ground when humans near.');}else if(s.type==='warren'||s.type==='watchtower'||s.type==='tunnels'){structs.push({type:s.type,gx:s.gx,gy:s.gy,slots:[]});coverPts.push({gx:s.gx,gy:s.gy});if(s.type==='watchtower')watchtowerBuilt=true;if(s.type==='tunnels')tunnelsBuilt=true;readiness=Math.min(1,readiness+0.08);showWarn(({warren:'🏡 Warren',watchtower:'🔭 Watchtower',tunnels:'🕳️ Tunnels'}[s.type])+' built!');}else{structs.push({type:s.type,gx:s.gx,gy:s.gy,slots:mkSlots()});coverPts.push({gx:s.gx,gy:s.gy});readiness=Math.min(1,readiness+0.1);showWarn(SNAME[s.type]+' built! Assign deer to it.');}sites.splice(i,1);}}}
+    for(let i=sites.length-1;i>=0;i--){const s=sites[i];if(s.building){s.prog+=dt/(s.type==='lever'?9:4);if(s.prog>=1){if(s.type==='lever'){leverBuilt=true;leverPos={gx:s.gx,gy:s.gy};readiness=Math.min(1,readiness+0.03);showWarn('🔧 Master Lever built! Tap Go to Ground when humans near.');}else if(s.type==='warren'||s.type==='watchtower'||s.type==='tunnels'){structs.push({type:s.type,gx:s.gx,gy:s.gy,slots:[]});coverPts.push({gx:s.gx,gy:s.gy});if(s.type==='watchtower')watchtowerBuilt=true;if(s.type==='tunnels')tunnelsBuilt=true;readiness=Math.min(1,readiness+0.01);showWarn(({warren:'🏡 Warren',watchtower:'🔭 Watchtower',tunnels:'🕳️ Tunnels'}[s.type])+' built!');}else{structs.push({type:s.type,gx:s.gx,gy:s.gy,slots:mkSlots()});coverPts.push({gx:s.gx,gy:s.gy});readiness=Math.min(1,readiness+0.006);showWarn(SNAME[s.type]+' built! Assign deer to it.');}sites.splice(i,1);}}}
 
     hideLift=lerp(hideLift,hidden?34:0,0.18);
     for(const d of herd){
