@@ -39,7 +39,11 @@
 <button class="lever" id="rally" style="left:12px;bottom:70px;background:#e0913c;display:none;">📣 Rally</button>
 <button class="lever" id="rise" style="left:50%;bottom:70px;transform:translateX(-50%);background:#b5484a;display:none;">🔥 Call the Uprising</button>
 <button class="lever" id="deco" style="left:12px;bottom:124px;background:#5aa06a;">🎨 Decorate</button>
+<button class="lever" id="build" style="left:12px;bottom:178px;background:#c9843a;">🔨 Build</button>
+<button class="lever" id="roster" style="left:12px;bottom:232px;background:#5b8fd6;">🦌 Deer</button>
 <div id="tray" style="display:none;position:fixed;left:0;right:0;bottom:0;background:rgba(255,253,246,.97);padding:7px 6px;overflow-x:auto;white-space:nowrap;box-shadow:0 -3px 14px rgba(80,70,40,.22);z-index:4;"></div>
+<div id="btray" style="display:none;position:fixed;left:0;right:0;bottom:0;background:rgba(255,251,240,.98);padding:7px 6px;overflow-x:auto;white-space:nowrap;box-shadow:0 -3px 14px rgba(80,70,40,.22);z-index:4;"></div>
+<div id="rpanel" style="display:none;position:fixed;inset:0;background:rgba(40,34,26,.72);z-index:6;overflow:auto;padding:14px;"></div>
 <div class="warn" id="warn"></div>
 <div id="end" style="display:none;position:fixed;inset:0;place-items:center;background:rgba(40,34,26,.86);z-index:6;"><div class="card" style="text-align:center;"><h2 style="font-size:26px;">🌿</h2><p style="font-size:14px;color:#5c4f3a;line-height:1.55;margin:6px 0 4px;"></p><button class="begin" id="keepBtn">Keep building →</button><button class="begin" id="newBtn" style="background:#8a7a5c;margin-top:8px;">New colony</button></div></div>
 <div class="hint" id="hint">Drag a deer onto a 🫐bush / 🪨rock to hand-gather · TAP a build site to build · assign deer to a Mine/Farm for way more output · 🪵chop logs → 🪵Lumber Mill=🟫lumber · Stone Mason=🧱bricks → build the 🔧 Master Lever</div>
@@ -94,6 +98,9 @@
   // ---- decorate mode ----
   let decos=[], decorating=false, placeSel=null;
   let bridges=new Set();
+  let bmode=false, buildSel=null;
+  const BCOST={farm:{cF:12,cS:8},mine:{cF:8,cS:12},lumber:{cF:15,cS:15},mason:{cF:15,cS:15},lever:{cL:40,cB:40},warren:{cF:20,cS:12},watchtower:{cF:14,cS:22},tunnels:{cL:18,cB:14}};
+  const BLIST=[['farm','🌾 Farm'],['mine','⛏ Mine'],['lumber','🪵 Lumber Mill'],['mason','🧱 Stone Mason'],['warren','🏡 Warren'],['watchtower','🔭 Watchtower'],['tunnels','🕳️ Tunnels'],['lever','🔧 Colony Hall']];
   const isBridge=(gx,gy)=>bridges.has(Math.round(gx)+'_'+Math.round(gy));
   function snapToLand(d){if(!isWater(d.gx,d.gy)||isBridge(d.gx,d.gy))return;let bx=Math.round(d.gx),by=Math.round(d.gy),found=false;for(let r=1;r<9&&!found;r++)for(let a=0;a<12;a++){const gx=Math.round(d.gx+Math.cos(a*0.5236)*r),gy=Math.round(d.gy+Math.sin(a*0.5236)*r);if(gx<0||gy<0||gx>=GW||gy>=GH)continue;if(!isWater(gx,gy)){bx=gx;by=gy;found=true;break;}}d.gx=bx;d.gy=by;d.vx=0;d.vy=0;}
   const DECOS=[
@@ -139,12 +146,7 @@
     raws=[];const nRaw=Math.round({sparse:3,normal:5,rich:8}[cfg.scar]*Math.max(1,GW*GH/484));
     for(let i=0;i<nRaw;i++){const sp=landSpot(1);raws.push({k:['forage','mine','chop'][i%3],gx:sp.gx,gy:sp.gy,slots:mkSlots()});coverPts.push({gx:sp.gx,gy:sp.gy});}
     // build sites near map centre
-    sites=[];const c1=landSpot(2),c2=landSpot(2),c3=landSpot(3),c4=landSpot(2),c5=landSpot(2);
-    sites.push({type:'farm',gx:c1.gx,gy:c1.gy,cF:12,cS:8,ghost:true,prog:0,building:false});
-    sites.push({type:'mine',gx:c2.gx,gy:c2.gy,cF:8,cS:12,ghost:true,prog:0,building:false});
-    sites.push({type:'lumber',gx:c4.gx,gy:c4.gy,cF:15,cS:15,ghost:true,prog:0,building:false});
-    sites.push({type:'mason',gx:c5.gx,gy:c5.gy,cF:15,cS:15,ghost:true,prog:0,building:false});
-    sites.push({type:'lever',gx:c3.gx,gy:c3.gy,cL:40,cB:40,ghost:true,prog:0,building:false});
+    sites=[];
     structs=[];leverBuilt=false;leverPos=null;hidden=false;firstAssign=false;
     herd=[];const n=parseInt(cfg.deer);for(let i=0;i<n;i++){const sp=landSpot(3);herd.push(mk(sp.gx,sp.gy));}
     center();
@@ -163,12 +165,13 @@
   const P=e=>{const p=e.touches?e.touches[0]:e;return p?{x:p.clientX,y:p.clientY}:null;};
   cv.addEventListener('pointerdown',e=>{const p=P(e);if(!p||!started)return;ptr=p;startPtr=p;moved=0;
     if(decorating){mode='deco';startPan={x:panX,y:panY};return;}
+    if(bmode){mode='build';startPan={x:panX,y:panY};return;}
     let best=null,bd=42*zoom;for(const d of herd){const s=W2S(iso(d.gx,d.gy).x,iso(d.gx,d.gy).y-16-d.lift);const dd=Math.hypot(s.x-p.x,s.y-p.y);if(dd<bd){bd=dd;best=d;}}
     if(best){mode='grab';held=best;best.held=true;releaseSlot(best);best.target=null;return;}
     tapSite=null;for(const s of sites){if(s.ghost&&!s.building){const sc=W2S(iso(s.gx,s.gy).x,iso(s.gx,s.gy).y-14);if(Math.hypot(sc.x-p.x,sc.y-p.y)<48*zoom){tapSite=s;break;}}}
     mode='pan';startPan={x:panX,y:panY};});
-  addEventListener('pointermove',e=>{const p=P(e);if(!p)return;moved+=Math.hypot(p.x-ptr.x,p.y-ptr.y);ptr=p;if(mode==='pan'||mode==='deco'){panX=startPan.x+(p.x-startPtr.x);panY=startPan.y+(p.y-startPtr.y);}});
-  addEventListener('pointerup',()=>{if(mode==='grab'&&held){held.held=false;assignDrop(held);held=null;}else if(mode==='pan'&&tapSite&&moved<8){tryBuild(tapSite);}else if(mode==='deco'&&moved<8){placeDeco();}mode=null;tapSite=null;});
+  addEventListener('pointermove',e=>{const p=P(e);if(!p)return;moved+=Math.hypot(p.x-ptr.x,p.y-ptr.y);ptr=p;if(mode==='pan'||mode==='deco'||mode==='build'){panX=startPan.x+(p.x-startPtr.x);panY=startPan.y+(p.y-startPtr.y);}});
+  addEventListener('pointerup',()=>{if(mode==='grab'&&held){held.held=false;assignDrop(held);held=null;}else if(mode==='pan'&&tapSite&&moved<8){tryBuild(tapSite);}else if(mode==='deco'&&moved<8){placeDeco();}else if(mode==='build'&&moved<8){placeBuilding();}mode=null;tapSite=null;});
   function placeDeco(){const w=S2W(ptr.x,ptr.y),g=unIso(w.x,w.y),gx=Math.round(g.gx),gy=Math.round(g.gy);
     if(placeSel==='remove'){let bi=-1,bd=1.4;for(let i=0;i<decos.length;i++){const dd=Math.hypot(decos[i].gx-g.gx,decos[i].gy-g.gy);if(dd<bd){bd=dd;bi=i;}}if(bi>=0){const rem=decos[bi];if(rem.t==='bridge')bridges.delete(Math.round(rem.gx)+'_'+Math.round(rem.gy));decos.splice(bi,1);}return;}
     if(!placeSel)return;if(gx<0||gy<0||gx>=GW||gy>=GH)return;
@@ -185,7 +188,40 @@
     for(const d of DECOS){const cost=(d.cF?d.cF+'🫐':'')+(d.cS?d.cS+'🪨':'')+(d.cL?d.cL+'🟫':'');h+='<button data-t="'+d.t+'" class="tb" style="'+bs+'">'+d.ic+'<br>'+d.name+(cost?'<br><span style="color:#8a7a5c;font-size:9px;">'+cost+'</span>':(d.fn?'':'<br><span style="color:#8a7a5c;font-size:9px;">free</span>'))+'</button>';}
     h+='<button data-t="remove" class="tb" style="'+bs+'background:#f3d6d3;">🗑<br>Remove</button>';_tray.innerHTML=h;
     _tray.querySelectorAll('.tb').forEach(b=>b.onclick=()=>{placeSel=b.dataset.t;markSel();});}
-  document.getElementById('deco').onclick=()=>{if(!started)return;decorating=!decorating;const btn=document.getElementById('deco');if(decorating&&!_tray.dataset.built){buildTray();_tray.dataset.built='1';}_tray.style.display=decorating?'block':'none';btn.textContent=decorating?'✖ Close Decorate':'🎨 Decorate';btn.style.background=decorating?'#b5484a':'#5aa06a';if(!decorating)placeSel=null;else if(!placeSel){placeSel='statue';markSel();}};
+  function closeBuild(){bmode=false;buildSel=null;_btray.style.display='none';const bb=document.getElementById('build');bb.textContent='🔨 Build';bb.style.background='#c9843a';}
+  document.getElementById('deco').onclick=()=>{if(!started)return;decorating=!decorating;const btn=document.getElementById('deco');if(decorating){closeBuild();if(!_tray.dataset.built){buildTray();_tray.dataset.built='1';}}_tray.style.display=decorating?'block':'none';btn.textContent=decorating?'✖ Close Decorate':'🎨 Decorate';btn.style.background=decorating?'#b5484a':'#5aa06a';if(!decorating)placeSel=null;else if(!placeSel){placeSel='statue';markSel();}};
+  // ---- build mode (player-placed buildings) ----
+  const _btray=document.getElementById('btray');
+  function markBSel(){_btray.querySelectorAll('.tb').forEach(b=>b.style.outline=(b.dataset.t===buildSel)?'3px solid #7b5bd6':'none');}
+  function bldTray(){let h='';const bs='display:inline-block;margin:2px;padding:5px 7px;border:2px solid #e5dcc4;border-radius:10px;background:#f5efe0;font-size:11px;font-weight:700;color:#5c4f3a;min-width:66px;text-align:center;line-height:1.25;';
+    for(const [t,label] of BLIST){if((t==='warren'||t==='watchtower'||t==='tunnels')&&!unlocked[t])continue;const c=BCOST[t];const cost=(c.cF?c.cF+'🫐 ':'')+(c.cS?c.cS+'🪨 ':'')+(c.cL?c.cL+'🟫 ':'')+(c.cB?c.cB+'🧱':'');h+='<button data-t="'+t+'" class="tb" style="'+bs+'">'+label+'<br><span style="color:#8a7a5c;font-size:9px;">'+cost+'</span></button>';}
+    _btray.innerHTML=h;_btray.querySelectorAll('.tb').forEach(b=>b.onclick=()=>{buildSel=b.dataset.t;markBSel();});}
+  function placeBuilding(){if(!buildSel)return;const w=S2W(ptr.x,ptr.y),g=unIso(w.x,w.y),gx=Math.round(g.gx),gy=Math.round(g.gy);
+    if(gx<0||gy<0||gx>=GW||gy>=GH)return;
+    if(isWater(gx,gy)){showWarn('🏞 Build on land');return;}
+    if(buildSel==='lever'&&(leverBuilt||sites.some(s=>s.type==='lever'))){showWarn('Only one Colony Hall');return;}
+    const occ=structs.some(o=>Math.round(o.gx)===gx&&Math.round(o.gy)===gy)||sites.some(o=>Math.round(o.gx)===gx&&Math.round(o.gy)===gy)||(leverBuilt&&leverPos&&Math.round(leverPos.gx)===gx&&Math.round(leverPos.gy)===gy);
+    if(occ){showWarn('That spot is taken');return;}
+    const s=Object.assign({type:buildSel,gx,gy,ghost:true,prog:0,building:false},BCOST[buildSel]);sites.push(s);tryBuild(s);if(!s.building)sites.pop();}
+  document.getElementById('build').onclick=()=>{if(!started)return;bmode=!bmode;const btn=document.getElementById('build');if(bmode){decorating=false;_tray.style.display='none';document.getElementById('deco').textContent='🎨 Decorate';document.getElementById('deco').style.background='#5aa06a';placeSel=null;bldTray();}_btray.style.display=bmode?'block':'none';btn.textContent=bmode?'✖ Close Build':'🔨 Build';btn.style.background=bmode?'#b5484a':'#c9843a';if(!bmode)buildSel=null;else if(!buildSel){buildSel='farm';markBSel();}};
+  // ---- deer roster ----
+  const JOBLBL={forage:'Foraging 🫐',mine:'Mining 🪨',chop:'Chopping 🪵',farm:'Farming 🌾',lumber:'Milling 🟫',mason:'Masoning 🧱'};
+  function deerJob(d){if(!d.target||!d.slot)return'Idle 💤';const o=d.target.obj;return JOBLBL[o.k||o.type]||'Working';}
+  function assignJob(d,job){releaseSlot(d);d.target=null;if(job==='idle'){d.roamx=d.gx;d.roamy=d.gy;d.roamT=10;return;}
+    let obj=null,kind=null;const stType={forage:'farm',mine:'mine'}[job];
+    if(stType){const st=structs.find(s=>s.type===stType&&s.slots.some(sl=>!sl.taken));if(st){obj=st;kind='struct';}}
+    if(!obj){const r=raws.find(rr=>rr.k===job&&rr.slots.some(sl=>!sl.taken));if(r){obj=r;kind='raw';}}
+    if(!obj){showWarn('No open '+job+' spot — gather node or build one');return;}
+    const slot=obj.slots.find(sl=>!sl.taken);slot.taken=d;d.slot=slot;d.target={type:kind,obj};d.atWork=0;firstAssign=true;}
+  const _rp=document.getElementById('rpanel');
+  function buildRoster(){let h='<div style="max-width:520px;margin:0 auto;background:#fffdf6;border-radius:16px;padding:14px;box-shadow:0 10px 40px rgba(0,0,0,.4);"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;"><b style="font-size:18px;color:#5c4f3a;">🦌 The Herd ('+herd.length+')</b><button id="rclose" style="border:0;background:#e8887f;color:#fff;font-weight:800;border-radius:10px;padding:6px 14px;">Done</button></div><div style="font-size:11px;color:#8a7a5c;margin-bottom:6px;">Tap a job to reassign a deer.</div>';
+    herd.forEach((d,i)=>{const lv=['','✦','✦✦'][d.lvl]||'';h+='<div style="display:flex;align-items:center;gap:5px;padding:6px 2px;border-top:1px solid #efe7d4;flex-wrap:wrap;"><b style="min-width:54px;color:#5c4f3a;font-size:13px;">'+d.name+'</b><span style="font-size:11px;color:#e0913c;min-width:22px;">'+lv+'</span><span style="flex:1;font-size:12px;color:#8a7a5c;min-width:80px;">'+deerJob(d)+'</span>';
+      for(const [j,ic] of [['forage','🫐'],['mine','🪨'],['chop','🪵'],['idle','💤']]){h+='<button data-i="'+i+'" data-j="'+j+'" class="rjob" style="border:1px solid #e5dcc4;background:#f5efe0;border-radius:8px;padding:4px 8px;font-size:14px;">'+ic+'</button>';}
+      h+='</div>';});
+    h+='</div>';_rp.innerHTML=h;
+    document.getElementById('rclose').onclick=()=>{_rp.style.display='none';};
+    _rp.querySelectorAll('.rjob').forEach(b=>b.onclick=()=>{assignJob(herd[+b.dataset.i],b.dataset.j);buildRoster();});}
+  document.getElementById('roster').onclick=()=>{if(!started)return;buildRoster();_rp.style.display='block';};
   function releaseSlot(d){if(d.target&&d.slot){d.slot.taken=null;d.slot=null;}}
   function assignDrop(d){snapToLand(d);let best=null,bt=null,bd=70*zoom;
     for(const r of raws){const s=W2S(iso(r.gx,r.gy).x,iso(r.gx,r.gy).y);const dd=Math.hypot(s.x-ptr.x,s.y-ptr.y);if(dd<bd){bd=dd;best=r;bt='raw';}}
@@ -202,7 +238,7 @@
   document.getElementById('rise').onclick=()=>{if(uprisingReady&&!uprising)startUprising();};
   let hintOn=true;function hideHint(){if(!hintOn)return;hintOn=false;const h=document.getElementById('hint');h.style.opacity=0;setTimeout(()=>h.remove(),1000);}
   let warnT=0;function showWarn(t){const w=document.getElementById('warn');w.textContent=t;w.style.opacity=1;warnT=3.2;}
-  function updateGuide(){const h=document.getElementById('hint');if(!h)return;const anyBuilding=sites.some(x=>x.building);let t;if(!firstAssign)t='👆 Drag a deer onto a 🫐bush · 🪨rock · 🪵logs to start gathering';else if(structs.length===0&&!anyBuilding)t='Now TAP a dashed build site (🌾/⛏/🪵/🧱) when you can afford it';else if(!leverBuilt)t='Assign deer to buildings for 3× output · refine 🪵→🟫 and 🪨→🧱 for the 🔧 Master Lever';else t='';if(t){h.textContent=t;h.style.opacity=1;}else h.style.opacity=0;}
+  function updateGuide(){const h=document.getElementById('hint');if(!h)return;const anyBuilding=sites.some(x=>x.building);let t;if(!firstAssign)t='👆 Drag a deer onto a glowing 🫐 · 🪨 · 🪵 node to gather';else if(structs.length===0&&!anyBuilding)t='Tap 🔨 Build to place a Farm or Mine where you like';else if(!leverBuilt)t='Assign deer via the 🦌 Deer panel · build & refine toward the 🔧 Colony Hall';else t='';if(t){h.textContent=t;h.style.opacity=1;}else h.style.opacity=0;}
 
   // setup screen wiring
   const cfg={size:'med',scar:'normal',hum:'normal',deer:'2'};let started=false;
@@ -218,7 +254,7 @@
   // ---- progression systems ----
   function spawnDeer(n){for(let i=0;i<n;i++){if(herd.length>=HERD_CAP)break;let sp;const w=structs.find(s=>s.type==='warren');if(w)sp={gx:w.gx,gy:w.gy+.7};else sp=landSpot(3);const d=mk(clamp(sp.gx,0,GW-1),clamp(sp.gy,0,GH-1));d.lift=20;herd.push(d);const s=W2S(iso(d.gx,d.gy).x,iso(d.gx,d.gy).y-24);pop(s.x,s.y,'heart');}}
   const TECHCOST={warren:{cF:20,cS:12},watchtower:{cF:14,cS:22},tunnels:{cL:18,cB:14}};
-  function unlockSite(type){if(unlocked[type])return;unlocked[type]=true;const sp=landSpot(2);sites.push(Object.assign({type,gx:sp.gx,gy:sp.gy,ghost:true,prog:0,building:false},TECHCOST[type]));}
+  function unlockSite(type){if(unlocked[type])return;unlocked[type]=true;}
   function lvlMult(d){return [1,1.35,1.8][d.lvl]||1;}
   function addXP(d,ot){if(!xpOn)return;d.xp++;d.job=ot;const nl=d.xp>=55?2:d.xp>=18?1:0;if(nl>d.lvl){d.lvl=nl;const s=W2S(iso(d.gx,d.gy).x,iso(d.gx,d.gy).y-32);pop(s.x,s.y,'star');showWarn((d.name||'A deer')+' is now '+(nl===2?'an Expert':'Skilled')+'! ✦');}}
   const MILES=[
@@ -422,6 +458,7 @@
     ents.sort((a,b)=>a.d-b.d);
     for(const o of ents){const ip=iso(o.e.gx,o.e.gy),spx=ip.x*zoom+panX,spy=ip.y*zoom+panY;if((o.k==='f'||o.k==='r'||o.k==='D')&&(spx<-90||spx>W+90||spy<-130||spy>H+70))continue;if(o.k==='f')drawFlora(o.e);else if(o.k==='r')drawRaw(o.e);else if(o.k==='s')drawSite(o.e);else if(o.k==='S')drawStruct(o.e);else if(o.k==='L')drawLever(o.e);else if(o.k==='d')drawDeer(o.e);else if(o.k==='D')drawDeco(o.e);else drawHuman();}
     if(decorating&&placeSel&&placeSel!=='remove'){const w=S2W(ptr.x,ptr.y),g=unIso(w.x,w.y),gx=Math.round(g.gx),gy=Math.round(g.gy);if(gx>=0&&gy>=0&&gx<GW&&gy<GH)drawDeco({t:placeSel,gx,gy},true);}
+    if(bmode&&buildSel){const w=S2W(ptr.x,ptr.y),g=unIso(w.x,w.y),gx=Math.round(g.gx),gy=Math.round(g.gy);if(gx>=0&&gy>=0&&gx<GW&&gy<GH&&!isWater(gx,gy)){const c=iso(gx,gy);drawBld(BLD_OF[buildSel],c.x,c.y,72,0.5);}}
     ctx.restore();
     for(const q of parts){ctx.globalAlpha=Math.max(0,q.life);ctx.font='13px serif';ctx.textAlign='center';ctx.fillText({heart:'♥',food:'🫐',stone:'🪨',wood:'🪵',lumber:'🟫',bricks:'🧱',star:'✦'}[q.t]||'•',q.x,q.y);}ctx.globalAlpha=1;
     edgeArrow();nightTint();}
